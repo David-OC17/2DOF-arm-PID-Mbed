@@ -1,19 +1,32 @@
 #include <Arduino.h>
 
+#include "common.h"
+#include "joint_state.h"
+#include "control_law.h"
 
-// put function declarations here:
-int myFunction(int, int);
-
+// NOTE call these functions in order
 void setup() {
-  // put your setup code here, to run once:
-  int result = myFunction(2, 3);
+  init_utils();
+  set_microros_transports();
+  delay(2000); // wait for ROS init
+
+  init_joint_state();
+  init_joint_state_kalman();
+
+  init_control_law();
+
+  init_micro_ros_nodes();
+
+  init_joint_state_values();
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
-}
+  // Increment by a common divisor of timeouts for timers in nodes
+  delay(100);
 
-// put function definitions here:
-int myFunction(int x, int y) {
-  return x + y;
+  // Spin _control_law_executor to update control law from subscription and send to drivers
+  RCSOFTCHECK(rclc_executor_spin_some(&_control_law_executor, RCL_MS_TO_NS(100)));
+
+  // Spin _joint_state_executor to state (with Kalman belief) and publish
+  RCSOFTCHECK(rclc_executor_spin_some(&_joint_state_executor, RCL_MS_TO_NS(100)));
 }
