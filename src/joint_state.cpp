@@ -12,6 +12,11 @@ void init_joint_state_kalman() {
   // Update u and cov with these measurements
 }
 
+void init_encoder_interrupt(motor m) {
+  attachInterrupt(digitalPinToInterrupt(motor1.encoder_a), update_encoder_motor1, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(motor2.encoder_a), update_encoder_motor2, CHANGE);
+}
+
 void joint_state_timer_callback(rcl_timer_t *timer, int64_t last_call_time) {
   RCLC_UNUSED(last_call_time);
 
@@ -40,6 +45,52 @@ void joint_state_timer_callback(rcl_timer_t *timer, int64_t last_call_time) {
   }
 }
 
+void update_encoder_motor1() {
+  int encoder_a_state = digitalRead(motor1.encoder_a);
+  int encoder_b_state = digitalRead(motor1.encoder_b);
+
+  // Determine direction of rotation
+  if (encoder_a_state == HIGH) {
+    if (encoder_b_state == LOW) {
+      motor1.encoder_pos++;
+    }
+    else {
+      motor1.encoder_pos--;
+    }
+  }
+  else {
+    if (encoder_b_state == LOW) {
+      motor1.encoder_pos--;
+    }
+    else {
+      motor1.encoder_pos++;
+    }
+  }
+}
+
+void update_encoder_motor2() {
+  int encoder_a_state = digitalRead(motor2.encoder_a);
+  int encoder_b_state = digitalRead(motor2.encoder_b);
+
+  // Determine direction of rotation
+  if (encoder_a_state == HIGH) {
+    if (encoder_b_state == LOW) {
+      motor2.encoder_pos++;
+    }
+    else {
+      motor2.encoder_pos--;
+    }
+  }
+  else {
+    if (encoder_b_state == LOW) {
+      motor2.encoder_pos--;
+    }
+    else {
+      motor2.encoder_pos++;
+    }
+  }
+}
+
 void init_joint_state_values() {
   // Initially both motors at 90deg and stationary
   _estimated_joint_state.joint1_pos = 90;
@@ -53,4 +104,23 @@ void init_joint_state_values() {
   _joint_state_msg.data.data[1] = _estimated_joint_state.joint2_pos;
   _joint_state_msg.data.data[2] = _estimated_joint_state.joint1_vel;
   _joint_state_msg.data.data[3] = _estimated_joint_state.joint1_vel;
+}
+
+void init_joint_state() {
+  // Create node
+  RCCHECK(rclc_node_init_default(&_joint_state_node, "joint_state_node", "",
+                                 &_support));
+
+  // Create publisher
+  RCCHECK(rclc_publisher_init_default(
+      &_joint_state_publisher, &_joint_state_node,
+      ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32MultiArray),
+      "joint_state_node_publisher"));
+
+  // Create timer
+  RCCHECK(rclc_timer_init_default(&_joint_state_timer, &_support,
+                                  RCL_MS_TO_NS(JOINT_STATE_TIMEOUT_MS),
+                                  joint_state_timer_callback));
+
+  RCCHECK(rclc_executor_add_timer(&_joint_state_executor, &_joint_state_timer));
 }

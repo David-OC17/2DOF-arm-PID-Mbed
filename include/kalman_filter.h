@@ -1,3 +1,6 @@
+#ifndef __KALMAN_FILTER_H__
+#define __KALMAN_FILTER_H__
+
 template <typename T>
 class KalmanFilter {
 private:
@@ -41,3 +44,5 @@ public:
         return _kalman_gain;
     }
 };
+
+#endif // __KALMAN_FILTER_H__
