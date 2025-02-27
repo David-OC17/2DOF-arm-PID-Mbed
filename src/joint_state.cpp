@@ -7,38 +7,44 @@ joint_state take_measurement_encoders() {
 }
 
 void init_joint_state_kalman() {
-  // Set initial belief of joint state to a normal dist.
+  // TODO assign to random position by normal distribution
+  float encoder1_theta = 0.0; // Initial position unknown?
+  float encoder2_theta = 0.0; // Initial position unknown?
 
-  // Update u and cov with these measurements
+  joint_state_kalman_filter.update(encoder1_theta, encoder2_theta);
+  joint_state_kalman_filter.predict();
 }
 
 void init_encoder_interrupt(motor m) {
-  attachInterrupt(digitalPinToInterrupt(motor1.encoder_a), update_encoder_motor1, CHANGE);
-  attachInterrupt(digitalPinToInterrupt(motor2.encoder_a), update_encoder_motor2, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(motor1.encoder_a),
+                  update_encoder_motor1, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(motor2.encoder_a),
+                  update_encoder_motor2, CHANGE);
 }
 
 void joint_state_timer_callback(rcl_timer_t *timer, int64_t last_call_time) {
+  // NOTE the frequency of this callback should match KALMAN_DT_MS timestep
   RCLC_UNUSED(last_call_time);
 
   _measured_joint_state = take_measurement_encoders();
 
-  // Update position
-  _estimated_joint_state.joint1_pos =
-      joint_state_pos_kalman_filter.updateEstimate(0);
-  _estimated_joint_state.joint2_pos =
-      joint_state_pos_kalman_filter.updateEstimate(0);
+  joint_state_kalman_filter.update(_measured_joint_state._joint1_theta, _measured_joint_state._joint2_theta);
+  joint_state_kalman_filter.predict();
 
-  // Update position velocity
-  _estimated_joint_state.joint1_vel =
-      joint_state_vel_kalman_filter.updateEstimate(0);
-  _estimated_joint_state.joint2_vel =
-      joint_state_vel_kalman_filter.updateEstimate(0);
+  // Update position
+  _estimated_end_efector_state._pos_x = joint_state_kalman_filter.getX();
+  _estimated_end_efector_state._pos_y = joint_state_kalman_filter.getY();
+
+  // Update velocity
+  _estimated_end_efector_state._vel_x = joint_state_kalman_filter.getVX();
+  _estimated_end_efector_state._vel_y = joint_state_kalman_filter.getVY();
 
   // Update ROS msg and publish
-  _joint_state_msg.data.data[0] = _estimated_joint_state.joint1_pos;
-  _joint_state_msg.data.data[1] = _estimated_joint_state.joint2_pos;
-  _joint_state_msg.data.data[2] = _estimated_joint_state.joint1_vel;
-  _joint_state_msg.data.data[3] = _estimated_joint_state.joint1_vel;
+  _joint_state_msg.data.data[0] = _estimated_end_efector_state._pos_x;
+  _joint_state_msg.data.data[1] = _estimated_end_efector_state._pos_y;
+
+  _joint_state_msg.data.data[2] = _estimated_end_efector_state._vel_x;
+  _joint_state_msg.data.data[3] = _estimated_end_efector_state._vel_y;
 
   if (timer != NULL) {
     RCSOFTCHECK(rcl_publish(&_joint_state_publisher, &_joint_state_msg, NULL));
@@ -53,16 +59,13 @@ void update_encoder_motor1() {
   if (encoder_a_state == HIGH) {
     if (encoder_b_state == LOW) {
       motor1.encoder_pos++;
-    }
-    else {
+    } else {
       motor1.encoder_pos--;
     }
-  }
-  else {
+  } else {
     if (encoder_b_state == LOW) {
       motor1.encoder_pos--;
-    }
-    else {
+    } else {
       motor1.encoder_pos++;
     }
   }
@@ -76,16 +79,13 @@ void update_encoder_motor2() {
   if (encoder_a_state == HIGH) {
     if (encoder_b_state == LOW) {
       motor2.encoder_pos++;
-    }
-    else {
+    } else {
       motor2.encoder_pos--;
     }
-  }
-  else {
+  } else {
     if (encoder_b_state == LOW) {
       motor2.encoder_pos--;
-    }
-    else {
+    } else {
       motor2.encoder_pos++;
     }
   }
@@ -93,17 +93,18 @@ void update_encoder_motor2() {
 
 void init_joint_state_values() {
   // Initially both motors at 90deg and stationary
-  _estimated_joint_state.joint1_pos = 90;
-  _estimated_joint_state.joint2_pos = 90;
+  _estimated_end_efector_state._pos_x = 0;
+  _estimated_end_efector_state._pos_y = 0;
 
-  _estimated_joint_state.joint1_vel = 0;
-  _estimated_joint_state.joint2_vel = 0;
+  _estimated_end_efector_state._vel_x = 0;
+  _estimated_end_efector_state._vel_y = 0;
 
-  // Init value of msg in and out
-  _joint_state_msg.data.data[0] = _estimated_joint_state.joint1_pos;
-  _joint_state_msg.data.data[1] = _estimated_joint_state.joint2_pos;
-  _joint_state_msg.data.data[2] = _estimated_joint_state.joint1_vel;
-  _joint_state_msg.data.data[3] = _estimated_joint_state.joint1_vel;
+  // Init value of msg
+  _joint_state_msg.data.data[0] = _estimated_end_efector_state._pos_x;
+  _joint_state_msg.data.data[1] = _estimated_end_efector_state._pos_y;
+
+  _joint_state_msg.data.data[2] = _estimated_end_efector_state._vel_x;
+  _joint_state_msg.data.data[3] = _estimated_end_efector_state._vel_y;
 }
 
 void init_joint_state() {

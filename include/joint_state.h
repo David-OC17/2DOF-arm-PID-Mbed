@@ -8,7 +8,7 @@
 #include <micro_ros_arduino.h>
 #include <std_msgs/msg/float32_multi_array.h>
 
-#include "kalman_filter.h"
+#include "kf_2dof.h"
 #include "common.h"
 
 rcl_publisher_t _joint_state_publisher;
@@ -22,19 +22,17 @@ std_msgs__msg__Float32MultiArray
 #define JOINT_STATE_TIMEOUT_MS 1000 // How often joint state is published
 #define ENCODER_INTERRUPT_INTERVAL 1000
 
-float E_MEA_POS = 0.1; // Measurement uncertainty for position
-float E_EST_POS = 1.0; // Estimation uncertainty for position
-float Q_POS = 0.001;   // Process noise for position
+float KALMAN_DT_MS = 0.01; // Time step in ms
+float KALMAN_Q_NOISE = 0.001; // Process noise (control - motor driver)
+float KALMAN_R_NOISE = 0.1; // Measurement noise (encoders)
 
-float E_MEA_VEL = 0.05; // Measurement uncertainty for velocity
-float E_EST_VEL = 0.5;  // Estimation uncertainty for velocity
-float Q_VEL = 0.005;    // Process noise for velocity
+float JOINT1_LEN = 1.0;
+float JOINT2_LEN = 1.0;
 
-KalmanFilter<float> joint_state_pos_kalman_filter(E_MEA_POS, E_EST_POS, Q_POS);
-KalmanFilter<float> joint_state_vel_kalman_filter(E_MEA_VEL, E_EST_VEL, Q_VEL);
+KF_2DOF joint_state_kalman_filter(KALMAN_DT_MS, JOINT1_LEN, JOINT2_LEN, KALMAN_Q_NOISE, KALMAN_R_NOISE);
 
 joint_state _measured_joint_state;
-joint_state _estimated_joint_state;
+end_efector_state _estimated_end_efector_state;
 
 joint_state take_measurement_encoders();
 

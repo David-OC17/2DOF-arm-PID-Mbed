@@ -37,11 +37,17 @@ typedef struct {
 } motor;
 
 typedef struct {
-  float joint1_pos;
-  float joint2_pos;
+  float _pos_x;
+  float _pos_y;
 
-  float joint1_vel;
-  float joint2_vel;
+  float _vel_x;
+  float _vel_y;
+} end_efector_state;
+
+// Consider jointN to be the Nth joint starting from the base
+typedef struct {
+  float _joint1_theta;
+  float _joint2_theta;
 } joint_state;
 
 rclc_executor_t _joint_state_executor;
