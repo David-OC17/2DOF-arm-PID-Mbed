@@ -7,6 +7,9 @@
 
 #include "common.h"
 
+#define MAX_MOTOR_VOLT 12.0
+#define MIN_2MOVE_MOTOR_VOLT float(MAX_MOTOR_VOLT * 0.2)
+
 extern rcl_subscription_t _control_law_subscriber;
 extern rcl_node_t _control_law_node;
 extern rcl_timer_t _control_law_timer;

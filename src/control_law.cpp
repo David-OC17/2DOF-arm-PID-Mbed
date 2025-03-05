@@ -6,6 +6,9 @@ rcl_subscription_t _control_law_subscriber;
 rcl_node_t _control_law_node;
 std_msgs__msg__Float32MultiArray _control_law_msg;
 
+motor motor1;
+motor motor2;
+
 /* Configure motor controller pins */
 void init_motor(motor m) {
   pinMode(m.pwm, OUTPUT);

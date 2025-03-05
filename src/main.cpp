@@ -1,10 +1,11 @@
 #include <Arduino.h>
 
 #include "common.h"
-#include "joint_state.h"
 #include "control_law.h"
+#include "joint_state.h"
 
 #define WAIT_ROS_INIT 2000
+#define CALIBRATE_KALMAN_ITERS 10
 #define LOOP_SPIN_CHECK_TIMEOUT_MS 20
 #define CONTROL_LAW_EXECUTOR_SPIN_TIMEOUT_MS 5 * LOOP_SPIN_CHECK_TIMEOUT_MS
 #define JOINT_STATE_EXECUTOR_SPIN_TIMEOUT_MS 5 * LOOP_SPIN_CHECK_TIMEOUT_MS
@@ -32,6 +33,10 @@ void setup() {
   init_joint_state_values(LINK1_LENGTH_MM, LINK2_LENGTH_MM);
   init_joint_state_kalman(ENCODER1_INITAL_POS_DEG, ENCODER2_INITAL_POS_DEG);
 
+  // Allow Kalman filter parameters to stabilize to valid values by slightly
+  // moving the motors and updating
+  calibrate_joint_state_kalman(CALIBRATE_KALMAN_ITERS);
+
   // Control law config node and timer
   init_control_law();
 
@@ -49,9 +54,14 @@ void loop() {
   // Increment by a common divisor of timeouts for timers in nodes
   delay(LOOP_SPIN_CHECK_TIMEOUT_MS);
 
-  // Spin _control_law_executor to update control law from subscription and send to drivers
-  RCSOFTCHECK(rclc_executor_spin_some(&_control_law_executor, RCL_MS_TO_NS(CONTROL_LAW_EXECUTOR_SPIN_TIMEOUT_MS)));
+  // Spin _control_law_executor to update control law from subscription and send
+  // to drivers
+  RCSOFTCHECK(rclc_executor_spin_some(
+      &_control_law_executor,
+      RCL_MS_TO_NS(CONTROL_LAW_EXECUTOR_SPIN_TIMEOUT_MS)));
 
   // Spin _joint_state_executor to state (with Kalman belief) and publish
-  RCSOFTCHECK(rclc_executor_spin_some(&_joint_state_executor, RCL_MS_TO_NS(JOINT_STATE_EXECUTOR_SPIN_TIMEOUT_MS)));
+  RCSOFTCHECK(rclc_executor_spin_some(
+      &_joint_state_executor,
+      RCL_MS_TO_NS(JOINT_STATE_EXECUTOR_SPIN_TIMEOUT_MS)));
 }

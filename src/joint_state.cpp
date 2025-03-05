@@ -1,10 +1,10 @@
 #include "joint_state.h"
+#include "control_law.h"
 
 rcl_publisher_t _joint_state_publisher;
 rcl_node_t _joint_state_node;
 rcl_timer_t _joint_state_timer;
-std_msgs__msg__Float32MultiArray
-    _joint_state_msg;
+std_msgs__msg__Float32MultiArray _joint_state_msg;
 
 joint_state _measured_joint_state;
 end_efector_state _estimated_end_efector_state;
@@ -13,9 +13,9 @@ end_efector_state _estimated_end_efector_state;
 joint_state take_measurement_encoders() {
   joint_state temp_state;
 
-  temp_state._joint1_theta =  motor1.encoder_pos * 360 / 493.9;
-  temp_state._joint2_theta =  motor2.encoder_pos * 360 / 493.9;
-  
+  temp_state._joint1_theta = motor1.encoder_pos * 360 / 493.9;
+  temp_state._joint2_theta = motor2.encoder_pos * 360 / 493.9;
+
   return temp_state;
 }
 
@@ -26,6 +26,40 @@ void init_joint_state_kalman(float encoder1_init_pos, float encoder2_init_pos) {
 
   joint_state_kalman_filter.update(encoder1_theta, encoder2_theta);
   joint_state_kalman_filter.predict();
+}
+
+/* Vibrate motors and update-predict Kalman filter multiple times to stabilize K
+ * matrix */
+void calibrate_joint_state_kalman(uint8_t iterations) {
+  int8_t sign = -1;
+
+  for (uint8_t i = 0; i < iterations; i++) {
+    control_motor(motor1, sign * MIN_2MOVE_MOTOR_VOLT);
+    control_motor(motor2, -sign * MIN_2MOVE_MOTOR_VOLT);
+    delay(100); // Allow movement for 100 MS
+
+    _measured_joint_state = take_measurement_encoders();
+    joint_state_kalman_filter.update(_measured_joint_state._joint1_theta,
+                                     _measured_joint_state._joint2_theta);
+    joint_state_kalman_filter.predict();
+
+    sign *= -1;
+  }
+
+  // Update estimated joint state after calibration
+  _estimated_end_efector_state._pos_x = joint_state_kalman_filter.getX();
+  _estimated_end_efector_state._pos_y = joint_state_kalman_filter.getY();
+
+  // Update velocity
+  _estimated_end_efector_state._vel_x = joint_state_kalman_filter.getVX();
+  _estimated_end_efector_state._vel_y = joint_state_kalman_filter.getVY();
+
+  // Update ROS msg and publish
+  _joint_state_msg.data.data[0] = _estimated_end_efector_state._pos_x;
+  _joint_state_msg.data.data[1] = _estimated_end_efector_state._pos_y;
+
+  _joint_state_msg.data.data[2] = _estimated_end_efector_state._vel_x;
+  _joint_state_msg.data.data[3] = _estimated_end_efector_state._vel_y;
 }
 
 /* Encoder interrupts */
@@ -84,7 +118,8 @@ void joint_state_timer_callback(rcl_timer_t *timer, int64_t last_call_time) {
 
   _measured_joint_state = take_measurement_encoders();
 
-  joint_state_kalman_filter.update(_measured_joint_state._joint1_theta, _measured_joint_state._joint2_theta);
+  joint_state_kalman_filter.update(_measured_joint_state._joint1_theta,
+                                   _measured_joint_state._joint2_theta);
   joint_state_kalman_filter.predict();
 
   // Update position
@@ -137,9 +172,9 @@ void init_joint_state() {
       "joint_state_node_publisher"));
 
   // Create timer
-  RCCHECK(rclc_timer_init_default(&_joint_state_timer, &_support,
-                                  RCL_MS_TO_NS(JOINT_STATE_TIMEOUT_MS),
-                                  joint_state_timer_callback));
+  RCCHECK(rclc_timer_init_default2(&_joint_state_timer, &_support,
+                                   RCL_MS_TO_NS(JOINT_STATE_TIMEOUT_MS),
+                                   joint_state_timer_callback, true));
 
   RCCHECK(rclc_executor_add_timer(&_joint_state_executor, &_joint_state_timer));
 }
