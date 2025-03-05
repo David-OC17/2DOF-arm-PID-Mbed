@@ -2,6 +2,11 @@
 
 #include "control_law.h"
 
+rcl_subscription_t _control_law_subscriber;
+rcl_node_t _control_law_node;
+std_msgs__msg__Float32MultiArray _control_law_msg;
+
+/* Configure motor controller pins */
 void init_motor(motor m) {
   pinMode(m.pwm, OUTPUT);
   pinMode(m.dir1, OUTPUT);
@@ -13,6 +18,7 @@ void init_motor(motor m) {
   m.encoder_pos = 0;
 }
 
+/* Create and start start control law subscriber node to spin with timer*/
 void init_control_law() {
   // Create node
   RCCHECK(rclc_node_init_default(&_control_law_node, "control_law_node", "",
@@ -30,6 +36,7 @@ void init_control_law() {
       &control_law_callback, ON_NEW_DATA));
 }
 
+/* Control law callback on new voltage for motors received from ROS topic */
 void control_law_callback(const void *msgin) {
   auto control_voltages = (const std_msgs__msg__Float32MultiArray *)msgin;
 
@@ -38,6 +45,7 @@ void control_law_callback(const void *msgin) {
   control_motor(motor2, control_voltages->data.data[1]);
 }
 
+/* Call to motor driver action */
 void control_motor(motor m, uint8_t volt) {
   // Positive voltage
   if (volt > 0) {

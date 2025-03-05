@@ -1,3 +1,6 @@
+#ifndef __KF_2DOF_H__
+#define __KF_2DOF_H__
+
 #include <Arduino.h>
 #include <math.h>
 
@@ -115,3 +118,5 @@ public:
   float getVX() { return x[2]; }
   float getVY() { return x[3]; }
 };
+
+#endif // __KF_2DOF_H__

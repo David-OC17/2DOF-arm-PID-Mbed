@@ -9,21 +9,25 @@
 #include <rclc/executor.h>
 #include <rclc/rclc.h>
 
+#define LINK1_LENGTH_MM 120.0 // Axis to axis
+#define LINK2_LENGTH_MM 88.0  // Axis to planar end-effector phase
+
+#define ENCODER1_INITAL_POS_DEG 0.0
+#define ENCODER2_INITAL_POS_DEG 0.0
+
 #define ERROR_LED_PIN 13
 
-// TODO define pins for motor
-#define MOTOR1_PWM 0
-#define MOTOR1_DIR1 0
-#define MOTOR1_DIR2 0
-#define MOTOR1_ENCODERA 0
-#define MOTOR1_ENCODERB 0
+#define MOTOR1_PWM 11
+#define MOTOR1_DIR1 10
+#define MOTOR1_DIR2 9
+#define MOTOR1_ENCODERA 8
+#define MOTOR1_ENCODERB 7
 
-// TODO define pins for motor
-#define MOTOR2_PWM 0
-#define MOTOR2_DIR1 0
-#define MOTOR2_DIR2 0
-#define MOTOR2_ENCODERA 0
-#define MOTOR2_ENCODERB 0
+#define MOTOR2_PWM 6
+#define MOTOR2_DIR1 5
+#define MOTOR2_DIR2 4
+#define MOTOR2_ENCODERA 3
+#define MOTOR2_ENCODERB 2
 
 typedef struct {
   uint8_t pwm;
@@ -50,14 +54,14 @@ typedef struct {
   float _joint2_theta;
 } joint_state;
 
-rclc_executor_t _joint_state_executor;
-rclc_executor_t _control_law_executor;
+extern rclc_executor_t _joint_state_executor;
+extern rclc_executor_t _control_law_executor;
 
-rclc_support_t _support;
-rcl_allocator_t _allocator;
+extern rclc_support_t _support;
+extern rcl_allocator_t _allocator;
 
-motor motor1;
-motor motor2;
+extern motor motor1;
+extern motor motor2;
 
 #define RCCHECK(fn)                                                            \
   {                                                                            \
@@ -76,29 +80,8 @@ motor motor2;
 
 void init_micro_ros_nodes();
 void init_utils();
+void ros_init();
+
 void error_loop();
-
-void init_micro_ros_nodes() {
-  _allocator = rcl_get_default_allocator();
-
-  // Create init_options
-  RCCHECK(rclc_support_init(&_support, 0, NULL, &_allocator));
-
-  // Create executor and add the specified timers
-  RCCHECK(rclc_executor_init(&_joint_state_executor, &_support.context, 2,
-                             &_allocator));
-}
-
-void init_utils() {
-  pinMode(ERROR_LED_PIN, OUTPUT);
-  digitalWrite(ERROR_LED_PIN, HIGH);
-}
-
-void error_loop() {
-  while (1) {
-    digitalWrite(ERROR_LED_PIN, !digitalRead(ERROR_LED_PIN));
-    delay(100);
-  }
-}
 
 #endif // __COMMON_H__
